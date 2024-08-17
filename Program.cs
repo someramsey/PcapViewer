@@ -18,13 +18,54 @@ foreach (var device in devicesBeingCaptured) {
     StopCaptureDevice(device);
 }
 
+Console.Clear();
+Console.WriteLine($"Hosts found: {hostMap.Count}");
+
+foreach (var (ip, host) in hostMap) {
+    Console.WriteLine($"{ip} =>\n\t{host ?? "Unknown"}");
+}
+
+
+return;
+
+async void RecordIp(string ip) {
+    if (hostMap.ContainsKey(ip)) {
+        return;
+    }
+
+    hostMap[ip] = null;
+
+    using var cts = new CancellationTokenSource(1000);
+
+    try {
+        var hostEntry = await Dns.GetHostEntryAsync(ip);
+        hostMap[ip] = hostEntry.HostName;
+        Console.WriteLine($"{ip} resolved to {hostEntry.HostName}");
+    } catch (OperationCanceledException) {
+        hostMap[ip] = null;
+        Console.WriteLine($"DNS resolution for {ip} timed out.");
+    } catch (Exception ex) {
+        Console.WriteLine($"DNS resolution for {ip} failed: {ex.Message}");
+    }
+}
+
+int GetSourcePacketPort(Packet packet) {
+    return packet switch {
+        TcpPacket tcp => tcp.SourcePort,
+        UdpPacket udp => udp.SourcePort,
+        _ => -1
+    };
+}
+
 void DeviceOnPacketArrival(object sender, PacketCapture captureEvent) {
     var rawPacket = captureEvent.GetPacket();
     var packet = Packet.ParsePacket(rawPacket.LinkLayerType, rawPacket.Data);
     var ipPacket = packet.Extract<IPPacket>();
 
     if (ipPacket != null) {
-        Console.WriteLine($"Packet from {ipPacket.SourceAddress} to {ipPacket.DestinationAddress}");
+        
+        // RecordIp(ipPacket.SourceAddress.ToString());
+        // RecordIp(ipPacket.DestinationAddress.ToString());
     }
 }
 
