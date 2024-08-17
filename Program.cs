@@ -49,23 +49,14 @@ async void RecordIp(string ip) {
     }
 }
 
-int GetSourcePacketPort(Packet packet) {
-    return packet switch {
-        TcpPacket tcp => tcp.SourcePort,
-        UdpPacket udp => udp.SourcePort,
-        _ => -1
-    };
-}
-
 void DeviceOnPacketArrival(object sender, PacketCapture captureEvent) {
     var rawPacket = captureEvent.GetPacket();
     var packet = Packet.ParsePacket(rawPacket.LinkLayerType, rawPacket.Data);
     var ipPacket = packet.Extract<IPPacket>();
 
     if (ipPacket != null) {
-        
-        // RecordIp(ipPacket.SourceAddress.ToString());
-        // RecordIp(ipPacket.DestinationAddress.ToString());
+        RecordIp(ipPacket.SourceAddress.ToString());
+        RecordIp(ipPacket.DestinationAddress.ToString());
     }
 }
 
