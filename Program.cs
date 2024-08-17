@@ -5,6 +5,7 @@ using SharpPcap;
 using SharpPcap.LibPcap;
 
 
+
 var deviceList = LibPcapLiveDeviceList.Instance;
 var devicesBeingCaptured = new List<LibPcapLiveDevice>();
 var hostMap = new Dictionary<string, RequestInfo>();
@@ -21,7 +22,12 @@ foreach (var device in devicesBeingCaptured) {
 Console.Clear();
 Console.WriteLine($"Hosts found: {hostMap.Count}");
 
-
+foreach (var entry in hostMap) {
+    if(entry.Value.Host is not null) {
+        Console.WriteLine($"{entry.Key} => {entry.Value.Host}");
+        Console.WriteLine($"\t{string.Join(", ", entry.Value.Processes)}");
+    }
+}
 return;
 
 
