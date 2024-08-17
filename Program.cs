@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Net;
-using System.Net.NetworkInformation;
-using System.Runtime.InteropServices;
 using PacketDotNet;
 using SharpPcap;
 using SharpPcap.LibPcap;
@@ -9,7 +7,7 @@ using SharpPcap.LibPcap;
 
 var deviceList = LibPcapLiveDeviceList.Instance;
 var devicesBeingCaptured = new List<LibPcapLiveDevice>();
-var hostMap = new Dictionary<string, string?>();
+var hostMap = new Dictionary<string, RequestInfo>();
 
 StartCaptureDevice(deviceList[4]);
 
@@ -23,35 +21,46 @@ foreach (var device in devicesBeingCaptured) {
 Console.Clear();
 Console.WriteLine($"Hosts found: {hostMap.Count}");
 
-foreach (var (ip, host) in hostMap) {
-    Console.WriteLine($"{ip} =>\n\t{host ?? "Unknown"}");
-}
-
 
 return;
 
-async void Record(string ip) {
-    if (hostMap.ContainsKey(ip)) {
-        return;
-    }
 
+async Task<IPHostEntry?> ResolveHostEntry(string ip) {
     using var cts = new CancellationTokenSource(1000);
 
-    hostMap[ip] = null;
-
     try {
-        var hostEntry = await Dns.GetHostEntryAsync(ip);
-        hostMap[ip] = hostEntry.HostName;
-        Console.WriteLine($"{ip} resolved to {hostEntry.HostName}");
+        return await Dns.GetHostEntryAsync(ip);
     } catch (OperationCanceledException) {
-        hostMap[ip] = null;
         Console.WriteLine($"DNS resolution for {ip} timed out.");
     } catch (Exception ex) {
         Console.WriteLine($"DNS resolution for {ip} failed: {ex.Message}");
     }
+    
+    return null;
 }
 
-int FindProcessByPort(ushort srcPort, ushort dstPort) {
+async void Record(string ip, ushort port, string process) {
+    string key = $"{ip}:{port}";
+
+    if (!hostMap.TryGetValue(key, out var requestInfo)) {
+        var hostEntry = await ResolveHostEntry(ip);
+
+        requestInfo = new RequestInfo {
+            Processes = [],
+            Host = hostEntry?.HostName
+        };
+
+        hostMap[ip] = requestInfo;
+    }
+
+    if (!requestInfo.Processes.Contains(process)) {
+        requestInfo.Processes.Add(process);
+
+        Console.WriteLine($"({process}) =>\n\t{ip}:{port}\n\t{requestInfo.Host}");
+    }
+}
+
+bool FindProcessByPort(ushort srcPort, ushort dstPort, out int processId) {
     var startInfo = new ProcessStartInfo {
         FileName = "netstat",
         Arguments = "-ano",
@@ -67,41 +76,47 @@ int FindProcessByPort(ushort srcPort, ushort dstPort) {
     string[] lines = output.Split([Environment.NewLine], StringSplitOptions.RemoveEmptyEntries);
 
     foreach (string line in lines) {
-        if (line.Contains($":{srcPort}")) {
+        if (line.Contains($":{srcPort}") || line.Contains($":{dstPort}")) {
             string[] parts = line.Split([" "], StringSplitOptions.RemoveEmptyEntries);
 
             if (parts.Length > 4 && int.TryParse(parts[^1], out int pid)) {
-                return pid;
+                processId = pid;
+
+
+                return true;
             }
         }
     }
 
+    processId = -1;
 
-    return -1;
+
+    return false;
 }
 
 void DeviceOnPacketArrival(object sender, PacketCapture captureEvent) {
     var rawPacket = captureEvent.GetPacket();
     var packet = Packet.ParsePacket(rawPacket.LinkLayerType, rawPacket.Data);
 
-
     if (packet.PayloadPacket is IPv4Packet { PayloadPacket: TransportPacket transportPacket } ipPacket) {
-        Console.WriteLine($"{ipPacket.SourceAddress}:{transportPacket.SourcePort} =>\n\t{ipPacket.DestinationAddress}:{transportPacket.DestinationPort}");
+        // Console.WriteLine($"{ipPacket.SourceAddress}:{transportPacket.SourcePort} =>\n\t{ipPacket.DestinationAddress}:{transportPacket.DestinationPort}");
 
-        var senderDevice = (LibPcapLiveDevice)sender;
-        var senderIp = senderDevice.Addresses[0].Addr.ipAddress;
-
-        if (Equals(ipPacket.SourceAddress, senderIp)) {
-            var pid = FindProcessByPort(transportPacket.SourcePort, transportPacket.DestinationPort);
-            
-            if (pid != -1) {
-                Console.WriteLine($"Process ID: {pid}");
-            }
-            
+        if (FindProcessByPort(transportPacket.SourcePort, transportPacket.DestinationPort, out int pid)) {
             var process = Process.GetProcessById(pid);
-            Console.WriteLine($"Process: {process.ProcessName}");
-        } else if (Equals(ipPacket.DestinationAddress, senderIp)) {
-            
+
+            var senderDevice = (LibPcapLiveDevice)sender;
+            var senderIp = senderDevice.Addresses[0].Addr.ipAddress;
+
+            var packetSourceIp = ipPacket.SourceAddress;
+            var packetDestIp = ipPacket.DestinationAddress;
+
+            if (Equals(packetSourceIp, senderIp)) {
+                Record(ipPacket.DestinationAddress.ToString(), transportPacket.DestinationPort, process.ProcessName);
+            } else if (Equals(packetDestIp, senderIp)) {
+                Record(ipPacket.SourceAddress.ToString(), transportPacket.SourcePort, process.ProcessName);
+            }
+
+
         }
     }
 }
@@ -118,4 +133,9 @@ void StartCaptureDevice(LibPcapLiveDevice device) {
 void StopCaptureDevice(LibPcapLiveDevice device) {
     device.StopCapture();
     device.Close();
+}
+
+public struct RequestInfo {
+    public string? Host;
+    public List<string> Processes;
 }
