@@ -33,9 +33,9 @@ async void RecordIp(string ip) {
         return;
     }
 
-    hostMap[ip] = null;
-
     using var cts = new CancellationTokenSource(1000);
+
+    hostMap[ip] = null;
 
     try {
         var hostEntry = await Dns.GetHostEntryAsync(ip);
@@ -52,12 +52,45 @@ async void RecordIp(string ip) {
 void DeviceOnPacketArrival(object sender, PacketCapture captureEvent) {
     var rawPacket = captureEvent.GetPacket();
     var packet = Packet.ParsePacket(rawPacket.LinkLayerType, rawPacket.Data);
-    var ipPacket = packet.Extract<IPPacket>();
-
-    if (ipPacket != null) {
-        RecordIp(ipPacket.SourceAddress.ToString());
-        RecordIp(ipPacket.DestinationAddress.ToString());
+    
+    
+    
+    if(packet.PayloadPacket is IPv4Packet ipPacket) {
+        if(ipPacket.PayloadPacket is TcpPacket tcpPacket) {
+               
+        } else if(ipPacket.PayloadPacket is UdpPacket udpPacket) {
+            
+        }
     }
+    
+    //
+    // var ipPacket = packet.Extract<IPPacket>();
+    //
+    // if (ipPacket != null) {
+    //     LibPcapLiveDevice senderDevice = (LibPcapLiveDevice)sender;
+    //     var senderIp = senderDevice.Addresses[0].Addr.ipAddress;
+    //
+    //     var packetSourceIp = ipPacket.SourceAddress;
+    //     var packetDestIp = ipPacket.DestinationAddress;
+    //
+    //     if (Equals(packetSourceIp, senderIp)) {
+    //         
+    //         
+    //         
+    //         
+    //         
+    //         
+    //         
+    //
+    //
+    //         Console.WriteLine($"Packet sent from {packetSourceIp} to {packetDestIp}");
+    //     } else if (Equals(packetDestIp, senderIp)) {
+    //         Console.WriteLine($"Packet received from {packetSourceIp} to {packetDestIp}");
+    //     }
+    //
+    //     // RecordIp(ipPacket.SourceAddress.ToString());
+    //     // RecordIp(ipPacket.DestinationAddress.ToString());
+    // }
 }
 
 void StartCaptureDevice(LibPcapLiveDevice device) {
