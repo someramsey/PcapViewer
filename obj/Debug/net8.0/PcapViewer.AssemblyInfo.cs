@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PcapViewer")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4405c7563c2801f008e7c9f6b797c1cd1dbaa592")]
 [assembly: System.Reflection.AssemblyProductAttribute("PcapViewer")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PcapViewer")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
