@@ -6,21 +6,47 @@ using SharpPcap.LibPcap;
 
 
 
+
 var deviceList = LibPcapLiveDeviceList.Instance;
 var devicesBeingCaptured = new List<LibPcapLiveDevice>();
 var hostMap = new Dictionary<string, RequestInfo>();
 
-StartCaptureDevice(deviceList[4]);
+if (deviceList.Count < 1) {
+    Console.WriteLine("No devices found on this machine.");
+    return;
+}
 
-Console.WriteLine("Press Enter to stop capturing...");
+Console.WriteLine("Available devices:");
+
+for (int i = 0; i < deviceList.Count; i++) {
+    var device = deviceList[i];
+    Console.WriteLine($"{device.Description} [{i}]");
+}
+
+Console.Write("Enter the index of the device to capture: ");
+
+if (!int.TryParse(Console.ReadLine(), out int deviceIndex) || deviceIndex < 0 || deviceIndex >= deviceList.Count) {
+    Console.WriteLine("Invalid device index.");
+    Console.ReadLine();
+    return;
+}
+
+
+Console.WriteLine("Starting the capture, press Enter to stop capturing...");
+Thread.Sleep(1000);
+
+StartCaptureDevice(deviceList[deviceIndex]);
+
 Console.ReadLine();
+
+Console.WriteLine("Capture stopped...");
 
 foreach (var device in devicesBeingCaptured) {
     StopCaptureDevice(device);
 }
 
 Console.Clear();
-Console.WriteLine($"Hosts found: {hostMap.Count}");
+Console.WriteLine($"Hosts found: {hostMap.Count(Entry => Entry.Value.Host is not null)}");
 
 foreach (var entry in hostMap) {
     if(entry.Value.Host is not null) {
