@@ -33,3 +33,7 @@ Hosts found: 3
 > -   Run `dotnet run`
 
 _Might not work for all devices..._
+
+## Usage
+
+https://github.com/user-attachments/assets/53dc097e-4ec0-4e23-90a0-615a94cf51c0
